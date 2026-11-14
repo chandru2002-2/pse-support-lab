@@ -1,0 +1,8 @@
+   367	// Retryable returns invoices of an import that may be submitted again.
+   368	func (s *Store) Retryable(ctx context.Context, importID string) ([]string, error) {
+   369		rows, err := s.db.Query(ctx, `SELECT id::text FROM invoices WHERE import_id = $1 AND status IN ($2, $3) ORDER BY created_at`,
+   370			importID, StatusValidated, StatusFailed)
+   371		if err != nil {
+   372			return nil, err
+   373		}
+   374		return pgx.CollectRows(rows, pgx.RowTo[string])

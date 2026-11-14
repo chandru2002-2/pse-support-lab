@@ -1,0 +1,36 @@
+    32	const (
+    33		customizationID = "urn:peppol:pint:billing-1@ae-1"
+    34	
+    35		// Fair-use policy per sender: bursts of up to 8 documents, then 2 per second.
+    36		senderBurst      = 8
+    37		senderRatePerSec = 2.0
+    38	
+   134	// allow reports whether the sender may send now; otherwise how long to wait.
+   135	func (l *limiter) allow(sender string, now time.Time) (bool, time.Duration) {
+   136		l.mu.Lock()
+   137		defer l.mu.Unlock()
+   138		b, ok := l.buckets[sender]
+   139		if !ok {
+   140			b = &bucket{tokens: senderBurst, last: now}
+   141			l.buckets[sender] = b
+   142		}
+   143		b.tokens = math.Min(senderBurst, b.tokens+now.Sub(b.last).Seconds()*senderRatePerSec)
+   144		b.last = now
+   145		if b.tokens >= 1 {
+   146			b.tokens--
+   147			return true, 0
+   148		}
+   149		wait := time.Duration((1 - b.tokens) / senderRatePerSec * float64(time.Second))
+   150		return false, wait
+   151	}
+   270		if sender == "" {
+   271			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing X-Sender-Id header"})
+   272			return
+   273		}
+   274		if ok, wait := s.limiter.allow(sender, time.Now()); !ok {
+   275			retryAfter := int(math.Ceil(wait.Seconds()))
+   276			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+   277			s.log.Warn("rate limit exceeded", "sender", sender, "retry_after_s", retryAfter)
+   278			documentsTotal.WithLabelValues("throttled").Inc()
+   279			writeJSON(w, http.StatusTooManyRequests, map[string]string{
+   280				"error":   "rate_limited",

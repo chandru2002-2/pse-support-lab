@@ -1,0 +1,28 @@
+   250			return
+   251		}
+   252		writeJSON(w, http.StatusOK, inv)
+   253	}
+   254	
+   255	func (s *Server) retryInvoice(w http.ResponseWriter, r *http.Request) {
+   256		id := r.PathValue("id")
+   257		if !validID(id) {
+   258			writeError(w, http.StatusNotFound, "invoice not found")
+   259			return
+   260		}
+   261		inv, err := s.store.GetSubmission(r.Context(), id)
+   262		if errors.Is(err, store.ErrNotFound) {
+   263			writeError(w, http.StatusNotFound, "invoice not found")
+   264			return
+   265		}
+   266		if err != nil {
+   267			s.internalError(w, r, err)
+   268			return
+   269		}
+   270		if inv.Status != store.StatusValidated && inv.Status != store.StatusFailed {
+   271			writeError(w, http.StatusConflict, "only invoices in status Validated or Failed can be retried (current status: "+inv.Status+")")
+   272			return
+   273		}
+   274		s.submitter.Enqueue(id)
+   275		s.log.Info("retry requested", "invoice_id", id)
+   276		writeJSON(w, http.StatusOK, map[string]int{"requeued": 1})
+   277	}

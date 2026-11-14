@@ -1,0 +1,15 @@
+   221	func (s *Server) retryImport(w http.ResponseWriter, r *http.Request) {
+   222		id := r.PathValue("id")
+   223		if !validID(id) {
+   224			writeError(w, http.StatusNotFound, "import not found")
+   225			return
+   226		}
+   227		ids, err := s.store.Retryable(r.Context(), id)
+   228		if err != nil {
+   229			s.internalError(w, r, err)
+   230			return
+   231		}
+   232		s.submitter.Enqueue(ids...)
+   233		s.log.Info("retry requested", "import_id", id, "requeued", len(ids))
+   234		writeJSON(w, http.StatusOK, map[string]int{"requeued": len(ids)})
+   235	}

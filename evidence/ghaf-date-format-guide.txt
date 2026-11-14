@@ -1,0 +1,11 @@
+    49	## Dates
+    50	
+    51	Dates must be **`YYYY-MM-DD`** text (for example `2026-11-13`) or real Excel date cells.
+    52	
+    53	Formats such as `13/11/2026` or `11/13/2026` are **rejected with AE-BR-04**. Written as text, they are ambiguous: `05/11/2026` is 5 November in the UAE and 11 May in the United States, and the portal must never guess the date on a tax invoice.
+    54	
+    55	How to fix it in Excel:
+    56	
+    57	- Select the date column → **Format Cells** → **Custom** → type `yyyy-mm-dd`. This works when the cells are real dates (they align to the right by default).
+    58	- If the dates were typed as text, convert them, for example with a helper column `=TEXT(DATE(RIGHT(A2,4),MID(A2,4,2),LEFT(A2,2)),"yyyy-mm-dd")`, then paste the results as values.
+    59	

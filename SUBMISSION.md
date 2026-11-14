@@ -1,374 +1,639 @@
 # Submission
+
 - Name: Chandru M
 - Date submitted: 14 November 2026
 - Repository link: https://github.com/chandru2002-2/pse-support-lab
-- Total time spent (real time): 3 hours 3 minutes as of 2:35 PM IST.
-  Customer replies and acknowledgements below are drafts written against the simulated exercise clock (Monday 16 November 2026, Asia/Dubai). No customer or engineering messages were actually sent.
+- Total time spent: 6 hours 48 minutes (11:42 AM–6:30 PM IST).
+
+Customer replies and acknowledgements below are drafts written against the simulated exercise clock (Monday 16 November 2026, Asia/Dubai). No customer or engineering messages were actually sent.
+
 ## Items I fully investigated, and why I chose them
-  I investigated all five incidents to varying depths. I prioritised the API restart and Sahara Medical incidents because they involved potential platform-level defects and incomplete invoice submissions. I also investigated Al Noor Fuel and Ghaf Tree Café to distinguish invoice-data validation failures from product defects. Oasis Builders was investigated using database records, although the customer-reported portal state could not be reproduced.
+
+I investigated all five incidents to varying depths. I prioritised the API restart and Sahara Medical incidents because they involved potential platform-level defects and incomplete invoice submissions. I also investigated Al Noor Fuel and Ghaf Tree Café to distinguish invoice-data validation failures from product defects. Oasis Builders was investigated using database records, although the customer-reported portal state could not be reproduced.
+
+---
+
 ## Incident 1 — Oasis Builders upload stuck
+
 ### Acknowledgement
+
 - Proposed send time (exercise clock): Monday, 16 November 2026, 09:15 Asia/Dubai
 - Reply (draft):
-  Hello Rashid,
-  Thank you for reporting the upload issue. We are checking the November import and reconciling the invoice records with their ASP submission references before recommending another upload.
-  Please avoid retrying the file for now, as this could create duplicate invoice submissions. I will provide an update after the import and invoice statuses have been reconciled.
-  Regards,
-  Support Team
+
+Hello Rashid,
+
+Thank you for reporting the upload issue. We are checking the November import and reconciling the invoice records with their ASP submission references before recommending another upload.
+
+Please avoid retrying the file for now, as this could create duplicate invoice submissions. I will provide an update after the import and invoice statuses have been reconciled.
+
+Regards,
+Support Team
+
 ### Priority and justification
-- Priority: P2
-- Why: The issue affects a single customer and creates month-end processing risk. The reported Processing state and duplicate-number warning require reconciliation before another upload. Available test records do not establish a wider production outage.
-- SLA deadlines: First response within 1 hour (by 10:05); updates every 2–4 hours; resolution target 8 hours, subject to the business-hours SLA.
+
+- **Priority:** P2
+- **Why:** The issue affects a single customer and creates month-end processing risk. The reported Processing state and duplicate-number warning require reconciliation before another upload. Available test records do not establish a wider production outage.
+- **SLA deadlines:** First response within 1 hour (by 10:05); updates every 2–4 hours; resolution target 8 hours, subject to the business-hours SLA.
+
 ### Investigation log
+
 | Time (exercise clock) | What I checked / did | What I found |
-
+|---|---|---|
 | 09:15 | Reviewed customer report and uploaded symptoms | Customer reported Processing state and duplicate invoice number warnings. |
-
-| 09:30 | Queried November import record | Import 59df6691-bc4b-4134-a121-c3b00ab03962 was Completed, with 8 invoices. |
-
+| 09:30 | Queried November import record | Import `59df6691-bc4b-4134-a121-c3b00ab03962` was Completed, with 8 invoices. |
 | 09:40 | Queried invoice statuses and ASP references | All 8 invoices were Accepted and had ASP message IDs. |
+| 09:50 | Checked duplicate invoice numbers for the seller | No duplicate invoice numbers were returned by the duplicate-check query. |
+| 10:00 | Reviewed invoice event history and ASP logs | All 8 records followed Parsed → Validated → Submitted → Accepted. Eight ASP acceptance events were found, with message IDs matching the database records. |
 
-| 09:50 | Checked duplicate invoice numbers for the seller | No duplicate invoice numbers were returned by the duplicate check query. |
-
-| 10:00 | Reviewed invoice event history | All 8 records followed Parsed → Validated → Submitted → Accepted. |
 ### Root cause
-- What happened: The database records generated during the simulated load test show a completed November import with eight accepted invoices. They do not reproduce the customer's reported Processing state.
-- Where: Import and invoice records in PostgreSQL. The corresponding outputs are linked below.
-- Why it happens: The cause of the customer-reported portal state remains unconfirmed. The investigated import was generated by make load, not by manually uploading the customer's file through the portal.
-- Evidence:
+
+- **What happened:** The database records generated during the simulated load test show a completed November import with eight accepted invoices. They do not reproduce the customer's reported Processing state.
+- **Where:** Import and invoice records in PostgreSQL, the ASP acceptance logs and the portal/API import-processing path.
+- **Why it happens:** The cause of the customer-reported portal state remains unconfirmed. The investigated import was generated by `make load`, not by manually uploading the customer's file through the portal.
+
+  A possible explanation to investigate is that a long-running import continued processing after the portal or proxy timed out. The web proxy has a 60-second timeout, while the importer has a 10-minute processing budget and runs independently of the original request context. A subsequent retry could therefore encounter invoice numbers already persisted by the first attempt. This is a technical hypothesis only; the customer's actual upload, request timing and proxy logs were not available to confirm it.
+- **Evidence:**
   - [Import status](evidence/oasis-import-status.txt)
   - [Invoice statuses and ASP references](evidence/oasis-invoice-statuses.txt)
   - [Duplicate invoice check](evidence/oasis-duplicate-check.txt)
-- Confidence and open questions: High confidence in the database state of the simulated import. The customer's reported UI issue remains unverified. A portal reproduction and correlation with the customer's actual upload/import ID are still required.
+  - [ASP acceptance events and message IDs](evidence/oasis-asp-acceptance.txt)
+  - [ASP investigation logs](evidence/sahara-asp-logs.txt)
+- **Confidence and open questions:** High confidence in the database state and ASP acceptance of the eight simulated invoices. The customer's reported UI issue remains unverified. A portal reproduction and correlation with the customer's actual upload/import ID are still required. ASP acceptance does not independently prove buyer delivery.
+
 ### Customer resolution reply OR escalation note
-- Which one and why: L2 escalation / second opinion is appropriate because the reported portal state was not reproduced by the available database evidence.
-  Escalation to L2 — Oasis Builders upload state
-  Priority: P2 — month-end processing risk and uncertainty about duplicate submissions.
-  Customer: Oasis Builders Supply LLC; seller ID 2.
-  Reported by / at: Rashid Al Mansoori; simulated inbox, Monday 16 November 2026, 09:05.
-  Affected: Customer-reported November upload. The investigated simulated import ID is 59df6691-bc4b-4134-a121-c3b00ab03962.
-  Symptoms: Customer reports that the upload remains Processing and retries show duplicate invoice numbers.
-  Evidence: The investigated import is Completed; all 8 invoice records are Accepted and have ASP message IDs. Duplicate-check query returned no duplicate invoice numbers.
-  What has been ruled out: Duplicate invoice numbers were not found in the investigated seller records. The simulated import completed successfully.
-  Suspected cause: Unknown. The investigated load-test import is not confirmed to be the customer's reported portal upload.
-  Workaround: Do not retry until the actual customer import and ASP references are reconciled.
-  Ask: Help correlate the customer's actual upload with its import record and determine why the portal may still display Processing.
-  Next customer update due: 11:15 Asia/Dubai.
-  Customer update draft: We have verified that a separate November test import completed and its eight invoices were accepted. We are checking the specific upload you reported before recommending any retry. Please do not upload the same file again until we confirm its status.
-Workaround offered
+
+- **Which one and why:** L2 escalation / second opinion is appropriate because the reported portal state was not reproduced by the available database evidence.
+
+**Escalation to L2 — Oasis Builders upload state**
+
+- **Priority:** P2 — month-end processing risk and uncertainty about duplicate submissions.
+- **Customer:** Oasis Builders Supply LLC; seller ID 2.
+- **Reported by / at:** Rashid Al Mansoori; simulated inbox, Monday 16 November 2026, 09:05.
+- **Affected:** Customer-reported November upload. The investigated simulated import ID is `59df6691-bc4b-4134-a121-c3b00ab03962`.
+- **Symptoms:** Customer reports that the upload remains Processing and retries show duplicate invoice numbers.
+- **Evidence:** The investigated import is Completed; all 8 invoice records are Accepted and have ASP message IDs. Eight corresponding ASP acceptance events were found. The duplicate-check query returned no duplicate invoice numbers.
+- **What has been ruled out:** Duplicate invoice numbers were not found in the investigated seller records. The simulated import completed successfully.
+- **Suspected cause:** Unknown. A proxy timeout followed by continued background processing is a hypothesis, not a confirmed explanation.
+- **Workaround:** Do not retry until the actual customer import and ASP references are reconciled.
+- **Ask:** Correlate the customer's actual upload with its import record; inspect request duration, proxy timeout logs and import-processing timestamps; determine whether a timed-out request continued processing in the background.
+- **Next customer update due:** 11:15 Asia/Dubai.
+
+**Customer update draft:**
+
+We have verified that a separate November test import completed and its eight invoices were accepted by the ASP. We are checking the specific upload you reported before recommending any retry. Please do not upload the same file again until we confirm its status.
+
+### Workaround offered
+
 Do not retry the upload until the actual import ID, invoice numbers and ASP message IDs have been reconciled. Keep already accepted invoices untouched.
+
 ### Prevention ideas
+
 - Display a reliable final import status based on persisted processing state.
 - Provide an import ID and per-invoice ASP reference in the portal.
 - Add duplicate detection before allowing a retry.
 - Provide a reconciliation view for imports that remain in Processing.
+- Make long-running import operations asynchronous and expose a durable job/import ID so a client timeout cannot be mistaken for a failed import.
+- Make retries idempotent.
+
+---
+
 ## Incident 2 — API restart alert / Marina Bay
+
 ### Acknowledgement
+
 - Proposed send time (exercise clock): Monday, 16 November 2026, 09:55 Asia/Dubai
 - Sent to: Internal on-call engineering / Priya (draft only; not actually sent).
 - Reply (draft):
-  Hello Priya,
-  I have taken ownership of the API restart alert and the reported intermittent 502 responses. I am checking container health, restart information, application logs and invoice processing state.
-  The API is currently reporting healthy, but the reported restarts and affected invoices need further investigation. I will escalate this to engineering on-call and provide the next update by 10:45 Asia/Dubai.
-  Regards,
-  Product Support
+
+Hello Priya,
+
+I have taken ownership of the API restart alert and the reported intermittent 502 responses. I am checking container health, restart information, application logs and invoice processing state.
+
+The API is currently reporting healthy, but the reported restarts and affected invoices need further investigation. I will escalate this to engineering on-call and provide the next update by 10:45 Asia/Dubai.
+
+Regards,
+Product Support
+
 ### Priority and justification
-- Priority: P1 — provisional, pending confirmation of the full production impact.
-- Why: The alert is critical, the API reports three restarts, and customers report intermittent 502s and invoices stuck in Validated. If no invoices are reaching the ASP for one or more customers, this meets the P1 definition. If submission continues with only intermittent degradation, reassess as P2.
-- SLA deadlines: First response within 15–30 minutes of receipt (09:57–10:12, based on 09:42 receipt); updates every 30–60 minutes; resolution target 4 hours.
+
+- **Priority:** P1 — provisional, pending confirmation of the full production impact.
+- **Why:** The alert is critical, the API reports three restarts, and customers report intermittent 502s and invoices stuck in Validated. In addition, the investigation identified a submission/recovery defect involving ASP HTTP 429 responses. The full production impact and the cause of the restarts remain unconfirmed.
+- **SLA deadlines:** First response within 15–30 minutes of receipt (09:57–10:12, based on 09:42 receipt); updates every 30–60 minutes; resolution target 4 hours.
+
 ### Investigation log
+
 | Time (exercise clock) | What I checked / did | What I found |
-
+|---|---|---|
 | 09:55 | Reviewed critical restart alert and Priya's report | Alert reported 3 restarts in 15 minutes; customer-facing symptoms included intermittent 502s and invoices stuck in Validated. |
-
 | 10:05 | Inspected API container state | Restart count was 3; OOMKilled=false; container was currently running and healthy. |
-
-| 10:15 | Reviewed API logs | Found a fresh API startup/listening sequence at 06:49:37 UTC and successful subsequent API requests. |
-
+| 10:15 | Reviewed API logs | Found startup/listening sequences at 06:30:20, 06:48:47, 06:49:12 and 06:49:37 UTC. |
 | 10:25 | Reviewed Docker event history | Captured events showed successful health-check subprocesses, but no container-level lifecycle event explaining the restart count. |
-
 | 10:35 | Checked ASP response logs | HTTP 429 responses occurred during simulated peak load, alongside HTTP 200 responses. |
+| 10:40 | Queried Marina Bay invoice statuses | Found 354 invoice records: 144 Accepted, 186 Submitted, 9 Validated and 15 Parsed. |
+| 10:45 | Compared ASP references and rate-limit responses | Only 144 records had non-empty ASP message IDs; 210 records had no recorded ASP message ID. |
+| 10:50 | Inspected submission and retry implementation | HTTP 429 was not handled explicitly; Submitted invoices were excluded from the normal retry paths. |
+| 10:55 | Compared restart and rate-limit timestamps | Found 27 Marina Bay HTTP 429 responses between 06:49:29 and 06:49:36 UTC. The next API startup was at 06:49:37 UTC. Temporal correlation was observed, but causation was not established. |
 
-| 10:45 | Compared evidence and assessed cause | ASP rate limiting was confirmed, but a causal link to the API restarts was not established. |
 ### Root cause
-- What happened: Docker reports three API container restarts. The API was healthy at inspection time, and the captured logs show a startup sequence. The captured evidence does not establish why the restarts occurred.
-- Where: API container, Docker runtime and ASP submission integration.
-- Why it happens: Undetermined. The API container configuration has a 128 MB memory limit, but OOMKilled=false means the available inspection does not support an out-of-memory conclusion. ASP HTTP 429 responses were observed during peak load, but they are not proven to have caused the restarts.
-- Evidence:
-  - API container state
-  - API investigation extract
-  - API full logs
-  - Docker events
-  - API lifecycle events
-- Confidence and open questions: High confidence in the observed restart count, current health state and OOMKilled=false. Root cause remains undetermined. Historical lifecycle logs, host-level events and telemetry around each restart timestamp are needed.
+
+- **What happened:** Docker reports three API container restarts. The API was healthy at inspection time, and the captured logs show multiple startup sequences. The captured evidence does not establish why the restarts occurred.
+
+  Separately, the investigation identified an invoice submission and recovery defect. Marina Bay had 354 invoice records:
+  - 144 Accepted, all with non-empty ASP message IDs.
+  - 186 Submitted, without ASP message IDs.
+  - 9 Validated, without ASP message IDs.
+  - 15 Parsed, without ASP message IDs.
+
+  The 210 records without recorded ASP message IDs require reconciliation. Their absence does not independently prove that the ASP never received them.
+- **Where:** API container, Docker runtime, API submission handling in `services/api/internal/submit/submit.go`, retry handling in the API/store implementation, and ASP rate limiting in `services/asp-mock/main.go`.
+- **Why it happens:**
+
+  **Restart cause — undetermined**
+
+  The API container configuration has a 128 MB memory limit, but the current inspection reported `OOMKilled=false`. The current container's memory peak was approximately 48.5 MiB, and its current memory-failure counter was zero. These observations do not establish the historical reason for the three restarts.
+
+  The available Docker event capture contained health-check subprocess events but did not preserve the container lifecycle events needed to explain the restarts. No fatal, panic, database-unavailable or server-stopped message was found in the captured application logs.
+
+  **Submission/recovery defect — confirmed by source review**
+
+  The submission code sets an invoice to Submitted before sending it to the ASP. It does not handle HTTP 429 explicitly or respect the ASP's Retry-After header. A 429 response can therefore leave the invoice in Submitted without a recorded ASP acknowledgement.
+
+  The worker selects Validated and Failed invoices for retry, not Submitted invoices. The individual invoice retry endpoint also rejects Submitted records with HTTP 409. The bulk retry query likewise excludes Submitted records.
+
+  The ASP mock's token-bucket limiter allows a burst of 8 documents and then 2 documents per second per sender. Excess requests receive HTTP 429 with a Retry-After header.
+
+  **Correlation, not causation**
+
+  Twenty-seven Marina Bay HTTP 429 responses were recorded between 06:49:29 and 06:49:36 UTC. The API startup at 06:49:37 UTC followed approximately half a second after the final recorded 429. This timing is noteworthy, but the available evidence does not prove that rate limiting caused the API restarts.
+- **Evidence:**
+  - [API container state](evidence/api-container-state.json)
+  - [API full logs](evidence/api-full-logs.txt)
+  - [API investigation extract](evidence/api-investigation-extract.txt)
+  - [Docker events](evidence/api-docker-events.txt)
+  - [API lifecycle events](evidence/api-lifecycle-events.txt)
+  - [HTTP 429 submission code](evidence/api-submit-429-code.txt)
+  - [Individual retry HTTP 409 code](evidence/api-retry-409-code.txt)
+  - [Bulk retry status filter](evidence/api-bulk-retry-filter.txt)
+  - [Bulk retry endpoint](evidence/api-bulk-retry-endpoint.txt)
+  - [ASP rate-limiter configuration](evidence/asp-rate-limiter-config.txt)
+- **Confidence and open questions:** High confidence in the restart count, current inspection state, observed Marina Bay invoice breakdown, 27 rate-limit responses and source-code retry limitations. The restart root cause remains undetermined. Historical lifecycle logs, host-level events and telemetry around each restart timestamp are needed.
+
 ### Customer resolution reply OR escalation note
-- Which one and why: L3 Engineering escalation. This is a provisional P1 with possible infrastructure or application-level impact. The escalation should not wait for a complete root cause.
-  Escalation: API restarted three times with intermittent 502 reports
-  Priority: P1 — critical restart alert and reported customer impact; confirm whether ASP submissions are broadly blocked.
-  Customer / seller: Multiple affected customers reported; exact seller IDs require correlation.
-  Reported by / at: Monitoring alert at 09:42; Priya's internal report at 09:50, Monday 16 November 2026, exercise clock.
-  Affected: API service; reported invoices stuck in Validated since approximately 09:30. Exact invoice IDs and customer count need confirmation.
-  Symptoms (customer view): Intermittent HTTP 502 responses and invoices remaining in Validated.
-  Evidence:
-- Container inspection: restart count 3; OOMKilled=false; currently healthy.
-- API logs: startup/listening sequence at 06:49:37 UTC and successful subsequent requests.
-- ASP logs: HTTP 429 responses during simulated peak load, alongside HTTP 200 responses.
-- Docker event output: no captured container-level die, start, restart or oom event explaining the restart count.
-- Evidence files: [api-container-state.json](evidence/api-container-state.json), [api-full-logs.txt](evidence/api-full-logs.txt), [api-investigation-extract.txt](evidence/api-investigation-extract.txt), [api-docker-events.txt](evidence/api-docker-events.txt), [api-lifecycle-events.txt](evidence/api-lifecycle-events.txt).
-  Steps to reproduce: Not yet established. Correlate the reported 502 timestamps and affected requests with API and infrastructure telemetry.
-  What I have already tried / ruled out:
-- Confirmed the API was healthy at inspection time.
-- Confirmed OOMKilled=false; an OOM cause is not established.
-- Confirmed ASP 429 responses occurred, but no causal relationship to the restarts has been demonstrated.
-  Suspected cause (with confidence): Unknown. ASP rate limiting is a concurrent confirmed condition, not a proven restart cause.
-  Workaround in place: No unverified restart or bulk retry. Identify affected invoices and reconcile their ASP status before retrying.
-  Timeline:
-- 09:42 — critical restart alert.
-- 09:50 — internal report of 502s and stuck invoices.
-- 10:05 — container state inspected.
-- 10:25 — Docker event history reviewed.
-- 10:35 — ASP rate-limit responses identified.
-  Ask: Engineering on-call to investigate the three restart events using host/runtime telemetry, identify the cause of the 502s, and confirm whether invoice submissions are being lost or delayed. Please provide an initial assessment by 10:45 Asia/Dubai.
-  Next customer update due: 10:45 Asia/Dubai.
-  Customer update draft: We have confirmed that the API experienced three reported restarts and are investigating the associated intermittent errors. The service is currently reporting healthy, but we are still checking the affected invoice submissions. Please do not resend invoices until their ASP status has been reconciled. We will update you by 10:45.
-Workaround offered
-Monitor API health and identify affected invoices that remain in Validated. Reconcile each invoice against ASP records before retrying. Do not bulk-resubmit invoices or assume that an HTTP 502 means the ASP did not receive an invoice.
+
+- **Which one and why:** L3 Engineering escalation. This is a provisional P1 with possible infrastructure and application-level impact. The confirmed submission/recovery defect needs engineering attention independently of the unresolved restart cause.
+
+**Escalation: API restarts, Marina Bay impact and ASP 429 recovery defect**
+
+- **Priority:** P1 provisional — critical restart alert and reported customer impact; reassess once the full scope is established.
+- **Customer / seller:** Marina Bay Hospitality; seller identity should be correlated with the account records.
+- **Reported by / at:** Monitoring alert at 09:42; Priya's internal report at 09:50, Monday 16 November 2026, exercise clock.
+- **Affected:** API service and Marina Bay invoice processing. The database query returned 354 invoice records.
+- **Symptoms:** Intermittent HTTP 502 responses and invoices remaining in intermediate states.
+- **Evidence:**
+  - Container inspection: restart count 3; OOMKilled=false; currently healthy.
+  - API logs: startup sequences at 06:30:20, 06:48:47, 06:49:12 and 06:49:37 UTC.
+  - Marina Bay invoice status query: 144 Accepted with ASP IDs, 186 Submitted without IDs, 9 Validated without IDs and 15 Parsed without IDs.
+  - ASP logs: 27 Marina Bay HTTP 429 responses between 06:49:29 and 06:49:36 UTC.
+  - Source code: HTTP 429 is not handled as a retryable submission result.
+  - Retry code: Submitted invoices are excluded from individual and bulk retry paths.
+  - Rate limiter: burst of 8, followed by 2 documents per second per sender.
+- **Steps to reproduce:** Submit enough documents through the ASP mock to trigger rate limiting, observe HTTP 429 responses, then inspect invoice status and retry eligibility. This reproduces the submission/recovery behaviour; it does not reproduce or establish the cause of the API restarts.
+- **What I have already tried / ruled out:**
+  - Confirmed the API was healthy at inspection time.
+  - Confirmed OOMKilled=false; an OOM cause is not established.
+  - Confirmed 27 Marina Bay HTTP 429 responses.
+  - Confirmed the API code does not explicitly handle 429 or respect Retry-After.
+  - Confirmed Submitted invoices are excluded from the normal retry paths.
+  - Confirmed the temporal proximity of the final 429 and subsequent API startup does not establish causation.
+- **Suspected cause (with confidence):**
+  - Restart cause: Unknown.
+  - Submission/recovery defect: High confidence based on database, ASP log and source-code evidence.
+- **Workaround in place:** Do not blindly resend invoices. Reconcile each outstanding invoice against ASP records before retrying. Do not attempt the standard retry endpoint for Submitted invoices; it returns HTTP 409. Engineering must provide an audited recovery procedure.
+- **Marina Bay go-live:** Do not declare the Wednesday 18 November go-live safe based solely on the API's current healthy status. The account and engineering owners should assess service stability, outstanding invoice reconciliation and recovery readiness before confirming launch readiness.
+- **Timeline:**
+  - 09:42 — critical restart alert.
+  - 09:50 — internal report of 502s and stuck invoices.
+  - 10:05 — container state inspected.
+  - 10:25 — Docker event history reviewed.
+  - 10:35 — ASP rate-limit responses identified.
+  - 10:40 — Marina Bay invoice statuses queried.
+  - 10:50 — submission and retry code reviewed.
+  - 10:55 — restart and rate-limit timestamps compared.
+- **Ask:** Engineering on-call to investigate the three restart events using host/runtime telemetry, identify the cause and scope of the 502s, and confirm whether invoice submissions are being lost or delayed. Please review the 429 handling and Submitted-state recovery defect, provide a safe reconciliation/recovery plan for the 210 Marina Bay invoices without recorded ASP message IDs, and confirm whether other tenants are affected. Please provide an initial assessment by 10:45 Asia/Dubai.
+- **Next customer update due:** 10:45 Asia/Dubai.
+
+**Customer update draft:**
+
+We have confirmed that the API experienced three reported restarts and are investigating the associated intermittent errors. We have also identified invoices that do not yet have recorded ASP acknowledgement references. Please do not resend invoices until their individual ASP status has been reconciled. We are coordinating with engineering on the recovery procedure and will update you by 10:45.
+
+### Workaround offered
+
+Monitor API health and identify affected invoices that remain in intermediate states. Reconcile each invoice against ASP records before retrying. Do not bulk-resubmit invoices or assume that an HTTP 502 means the ASP did not receive an invoice. Submitted invoices require an engineering-approved recovery path because the normal retry endpoints do not accept that status.
+
 ### Prevention ideas
+
 - Preserve container lifecycle events and restart reasons for longer periods.
-- Add alerts for restart frequency, 502 rates and invoices stuck in Validated.
-- Add robust retry and backoff handling for transient ASP errors.
+- Add alerts for restart frequency, 502 rates and invoices stuck in intermediate states.
+- Handle HTTP 429 as a retryable response and respect Retry-After.
+- Implement bounded exponential backoff with jitter.
 - Use idempotency keys to prevent duplicate invoice submissions.
+- Provide an audited recovery path for Submitted invoices without ASP acknowledgements.
 - Add dashboards correlating API restarts, ASP response codes, queue depth and invoice-state transitions.
+- Add a tenant-impact and go-live readiness check to the incident runbook for critical API alerts.
+
+---
+
 ## Incident 3 — Al Noor Fuel BR-CO-15
+
 ### Acknowledgement
+
 - Proposed send time (exercise clock): Monday, 16 November 2026, 10:30 Asia/Dubai
 - Reply (draft):
-  Hello Fatima,
-  Thank you for sharing the rejected invoices. I am reviewing the BR-CO-15 validation results and comparing the invoice totals with the VAT amounts to identify the discrepancies.
-  I will share the affected invoice references and the required corrections shortly.
-  Regards,
-  Support Team
+
+Hello Fatima,
+
+Thank you for sharing the rejected invoices. I am reviewing the BR-CO-15 validation results and comparing the invoice totals with the VAT amounts to identify the discrepancies.
+
+I will share the affected invoice references and the calculation findings shortly.
+
+Regards,
+Support Team
+
 ### Priority and justification
-- Priority: P2
-- Why: Three of six invoices were rejected, creating a partial processing failure and an auditor-review concern. The other three were accepted, so this is not a complete service outage.
-- SLA deadlines: First response within 1 hour (by 11:15); updates every 2–4 hours; resolution target 8 hours during applicable business hours.
+
+- **Priority:** P2
+- **Why:** Three of six invoices were rejected, creating a partial processing failure and an auditor-review concern. The other three were accepted, so this is not a complete service outage.
+- **SLA deadlines:** First response within 1 hour (by 11:15); updates every 2–4 hours; resolution target 8 hours during applicable business hours.
+
 ### Investigation log
+
 | Time (exercise clock) | What I checked / did | What I found |
-
+|---|---|---|
 | 10:30 | Reviewed customer report and BR-CO-15 error | Rule requires IBT-112 to equal IBT-109 plus IBT-110. |
-
 | 10:40 | Queried the six November invoice records | Three invoices were Accepted and three were Rejected. |
-
 | 10:50 | Compared invoice totals and VAT amounts for rejected records | Found small arithmetic discrepancies in all three rejected invoices. |
+| 11:00 | Reviewed invoice payloads and calculation implementation | VAT and gross totals are calculated using different rounding paths. |
+| 11:10 | Reproduced the three reported discrepancies using the recorded invoice values | All three ASP-reported differences were reproduced from the invoice payload values and calculation logic. |
+| 11:20 | Saved code and payload evidence | Calculation source and the three rejected invoice payloads captured in evidence files. |
 
-| 11:00 | Checked accepted invoice records | The three accepted invoices did not show this rejection. |
-
-| 11:10 | Saved query results for evidence | Invoice-level calculations and statuses captured in the investigation output. |
 ### Root cause
-- What happened: Three of six November invoices were rejected by the ASP for BR-CO-15 because the final invoice total did not exactly equal the sum of the amount excluding VAT and the VAT amount.
-- Where: Invoice calculation / amount generation upstream of ASP validation. The exact source component has not been established.
-- Why it happens: The rejected invoice totals contain small discrepancies, potentially related to rounding or amount calculation. The evidence confirms the arithmetic mismatch but does not establish which upstream component introduced it.
-- Evidence:
+
+- **What happened:** Three of six November invoices were rejected by the ASP for BR-CO-15 because the final invoice total did not exactly equal the sum of the amount excluding VAT and the VAT amount.
+- **Where:** The invoice amount calculation path in `services/api/internal/pint/pint.go`, particularly the line VAT calculation and `computeTotals()` function.
+- **Why it happens:** Code review identified inconsistent rounding in the calculation path:
+  - Line VAT is rounded using `round2(net * rate / 100)`.
+  - The gross amount is accumulated independently using `quantity * unit price * (1 + VAT rate / 100)` and rounded later.
+  - The line net amount can itself be rounded, so the independent gross calculation can differ from the sum of the reported net and VAT amounts.
+
+  This creates discrepancies between the reported net, VAT and gross totals. The three rejected records reproduce the ASP-reported differences using their recorded payload values. This is a platform-side calculation defect requiring engineering correction, not evidence that the customer's dispatch records should be altered.
+- **Evidence:**
   - [Al Noor invoice investigation](evidence/al-noor-invoice-investigation.txt)
+  - [Rounding implementation](evidence/al-noor-rounding-code.txt)
+  - [Rejected invoice payload calculations](evidence/al-noor-rounding-payloads.txt)
   - Rejected invoice ANF-2611-0042-HC53: 14,307.08 + 715.35 = 15,022.43, but total is 15,022.42 (AED 0.01 difference).
   - Rejected invoice ANF-2611-0044-HC53: 11,254.84 + 562.75 = 11,817.59, but total is 11,817.57 (AED 0.02 difference).
   - Rejected invoice ANF-2611-0046-HC53: 5,343.80 + 267.20 = 5,611.00, but total is 5,610.99 (AED 0.01 difference).
-- Confidence and open questions: High confidence that the three rejected invoices violate the arithmetic rule. The precise origin of the rounding/calculation discrepancy requires review of the ERP export and invoice calculation logic.
+- **Confidence and open questions:** High confidence in the reproduced discrepancies and the inconsistent calculation paths identified in the code. Engineering must confirm the intended rounding policy, implement the correction and add regression tests. No production fix has been confirmed or deployed.
+
 ### Customer resolution reply OR escalation note
-- Which one and why: Customer resolution reply. The validation rule is working as documented; the customer needs to correct the affected invoice calculations.
-  Hello Fatima,
-  We investigated your November invoice batch. Three of the six invoices were accepted, while three were rejected by the ASP validation rule BR-CO-15.
-  The rejected invoices contain small discrepancies between the amount excluding VAT, the VAT amount and the final invoice total. The final total must exactly equal the sum of the other two amounts.
-  Please review the calculations for invoices ANF-2611-0042-HC53, ANF-2611-0044-HC53 and ANF-2611-0046-HC53 in your ERP or invoice-generation system. Once corrected, check the existing ASP status before resubmitting the affected invoices.
-  Please do not resubmit the three invoices already accepted.
-  Regards,
-  Support Team
-Workaround offered
-Correct the arithmetic for the three rejected invoices, verify the totals to two decimal places, and resubmit only after checking their existing ASP status. Leave the three accepted invoices untouched.
+
+- **Which one and why:** L3 Engineering escalation with a customer holding update. The calculation defect is supported by the recorded payloads and source code. Asking the customer to alter source values would risk introducing incorrect accounting data.
+
+**Customer holding update draft:**
+
+Hello Fatima,
+
+We investigated your November invoice batch. Three of the six invoices were accepted, while three were rejected by the ASP validation rule BR-CO-15.
+
+We reproduced the small differences between the net amount, VAT amount and gross total using the recorded invoice values. Our code review identified an inconsistency in the platform's rounding calculations.
+
+This appears to be a platform-side issue. Please do not alter your original dispatch records or manually adjust the invoice amounts. We have escalated the calculation defect to engineering and will provide an update by 12:30 Asia/Dubai.
+
+Regards,
+Support Team
+
+**L3 Engineering escalation — Al Noor Fuel BR-CO-15 calculation defect**
+
+- **Priority:** P2 — three of six invoices rejected; auditor review and VAT reporting impact.
+- **Customer:** Al Noor Fuel & Lubricants LLC; seller identity should be correlated with the invoice records.
+- **Reported by:** Fatima Khoury, Finance Manager.
+- **Affected invoices:** ANF-2611-0042-HC53, ANF-2611-0044-HC53 and ANF-2611-0046-HC53.
+- **Reproduction:** The recorded payload values reproduce the three ASP-reported BR-CO-15 discrepancies.
+- **Evidence:**
+  - `evidence/al-noor-invoice-investigation.txt`
+  - `evidence/al-noor-rounding-code.txt`
+  - `evidence/al-noor-rounding-payloads.txt`
+- **Technical finding:** `pint.go` rounds line VAT independently, while `computeTotals()` calculates gross using the unrounded quantity/unit-price expression. This can produce a mismatch between net plus VAT and gross.
+- **Engineering ask:**
+  1. Confirm the intended line-level and invoice-level rounding policy.
+  2. Correct the gross and VAT calculation path so the generated invoice totals are internally consistent.
+  3. Add regression tests using all three rejected invoice payloads.
+  4. Verify BR-CO-15 before ASP submission.
+  5. Provide a safe recovery plan for the three rejected invoices.
+- **Customer protection:** Do not ask the customer to alter otherwise-correct source amounts. Preserve the three accepted invoices. Do not manually edit the rejected invoice payloads or resubmit until the corrected calculation has been verified.
+- **Next customer update due:** 12:30 Asia/Dubai.
+
+### Workaround offered
+
+Do not manually alter the source amounts while the platform calculation is being corrected. Preserve the three accepted invoices. After engineering confirms the correct calculation and the rejected payloads are reconciled, regenerate only the affected invoices and verify their ASP status before any resubmission.
+
 ### Prevention ideas
+
 - Use decimal arithmetic rather than floating-point calculations for monetary values.
 - Apply a consistent VAT rounding policy at line and invoice level.
 - Validate IBT-112 = IBT-109 + IBT-110 before submission.
+- Add regression tests using the three rejected invoice payloads.
 - Add tests for fractional VAT calculations and multi-line invoices.
+
+---
+
 ## Incident 4 — Bluepeak / Sahara Medical invoices not received
+
 ### Acknowledgement
+
 - Proposed send time (exercise clock): Monday, 16 November 2026, 11:45 Asia/Dubai
 - Reply (draft):
-  Hello Daniel,
-  I have taken ownership of the 40-invoice batch investigation. An HTTP 201 response confirms that the connector request was accepted, but it does not by itself confirm that every invoice was accepted by the ASP or delivered to the buyer.
-  We are reconciling the invoice-level ASP acknowledgements. Please do not resend the batch until this check is complete, as that could create duplicate submissions.
-  I will provide the next update by 13:45 Asia/Dubai.
-  Regards,
-  Support Team
-### Priority and justification
-- Priority: P2
-- Why: Thirty-two of forty invoices have no recorded ASP acknowledgement, and the buyer reports incomplete receipt. This is a significant partial processing failure with potential payment-run impact, but eight invoices were accepted and the evidence does not establish a complete platform outage.
-- SLA deadlines: First response within 1 hour (by 12:30); updates every 2–4 hours; resolution target 8 hours during applicable business hours.
-### Investigation log
-| Time (exercise clock) | What I checked / did | What I found |
 
-| 11:45 | Reviewed connector response and customer report | Connector returned HTTP 201; portal displayed Submitted; buyer reported receiving only a few invoices. |
-
-| 12:00 | Queried the 40 invoice records | All 40 invoices had parsed and passed validation. |
-
-| 12:10 | Grouped invoice statuses and ASP references | Eight Accepted with ASP message IDs; 32 Submitted without ASP message IDs. |
-
-| 12:20 | Reviewed invoice event history | All 40 reached Submitted; only the first eight had subsequent Accepted events. |
-
-| 12:35 | Reviewed ASP mock logs | Repeated HTTP 429 rate-limit responses were recorded for the Sahara sender during the batch. |
-
-| 12:50 | Inspected submission implementation | HTTP 429 is not handled as a retryable response; the invoice remains Submitted and is not selected by the worker's Validated/Failed retry filter. |
-
-| 13:10 | Saved database, ASP and retry investigation output | Evidence captured in the Sahara investigation files. |
-### Root cause
-- What happened: The batch contained 40 invoices. Eight received ASP acceptance acknowledgements; the remaining 32 remained Submitted without ASP message IDs or acceptance confirmations.
-- Where: API submission handling in services/api/internal/submit/submit.go; ASP mock rate limiting is implemented in services/asp-mock/main.go.
-- Why it happens: The ASP returned HTTP 429 rate-limit responses during the batch. The submission code does not handle 429 as a retryable response or respect the Retry-After header. The invoice remains in Submitted, and the worker does not select Submitted invoices for retry because it processes Validated or Failed records.
-- Evidence:
-  - Sahara invoice acknowledgements
-  - Sahara retry investigation and code review
-  - Sahara ASP investigation
-  - Sahara ASP logs
-  - Database results show 8 Accepted with ASP references and 32 Submitted without references.
-  - ASP logs show rate-limit responses around the batch submission time.
-- Confidence and open questions: High confidence in the HTTP 429 handling defect because the database state, ASP logs and source-code behavior align. The 32 invoices still require reconciliation against ASP records to establish whether any were received despite the missing local acknowledgement. Buyer delivery must also be verified separately from ASP acceptance.
-### Customer resolution reply OR escalation note
-- Which one and why: L3 Engineering escalation. The submission handling defect is in product code and requires an engineering fix. Support retains ownership of customer communication.
-  Escalation: HTTP 429 leaves Sahara Medical invoices stuck in Submitted
-  Priority: P2 — 32 of 40 invoices lack recorded ASP acknowledgements, affecting the customer's buyer payment process.
-  Customer / seller: Sahara Medical Supplies FZE; seller ID 5. Reported through Bluepeak ERP.
-  Reported by / at: Daniel Okafor; simulated inbox, Monday 16 November 2026, 11:30 Asia/Dubai.
-  Affected: Import ID 58a77bbd-4244-4f77-9266-c0974ee88b8c; 40 invoices, SMS-1116-001-HC53 through SMS-1116-040-HC53.
-  Symptoms (customer view): Connector returned HTTP 201 and portal shows Submitted, but the buyer received only a few invoices and many ASP references are empty.
-  Evidence:
-- Database: 8 Accepted with ASP message IDs; 32 Submitted with no ASP message IDs or ASP response.
-- ASP logs: repeated HTTP 429 rate-limit responses for the Sahara sender during the batch.
-- Code: services/api/internal/submit/submit.go sends the request once, handles 200 and 422 explicitly and does not handle 429 as a retryable response. It does not capture or respect Retry-After.
-- Worker: retry selection includes Validated and Failed records, not Submitted records.
-- Evidence files: [sahara-invoice-acknowledgements.txt](evidence/sahara-invoice-acknowledgements.txt), [sahara-retry-investigation.txt](evidence/sahara-retry-investigation.txt), [sahara-asp-investigation.txt](evidence/sahara-asp-investigation.txt), [sahara-asp-logs.txt](evidence/sahara-asp-logs.txt).
-  Steps to reproduce:
-1. Submit a batch large enough to trigger the ASP mock rate limiter.
-2. Observe HTTP 429 responses.
-3. Inspect invoice records after submission.
-4. Observe that affected records remain Submitted without ASP references and are not selected by the retry worker.
-   What I have already tried / ruled out:
-   - Confirmed all 40 invoices parsed and passed validation.
-   - Confirmed eight ASP acceptances.
-   - Confirmed 32 invoices lack recorded ASP acknowledgements.
-   - Confirmed the connector's HTTP 201 does not prove individual ASP acceptance.
-     Suspected cause (with confidence): High confidence — HTTP 429 is not handled as a retryable submission result; Submitted records are excluded from the worker's retry selection.
-     Workaround in place: Do not resend the entire batch. Reconcile the 32 outstanding invoice references with ASP records before retrying only those confirmed as not received.
-     Timeline:
-   - 11:30 — customer report received.
-   - 12:10 — database confirmed 8 accepted and 32 without acknowledgement.
-   - 12:35 — ASP 429 responses identified.
-   - 12:50 — submission and retry code reviewed.
-     Ask: Engineering to implement HTTP 429 handling, respect Retry-After, add bounded exponential backoff and idempotency protection, and provide a safe recovery procedure for the 32 affected invoices. Please provide an initial assessment by 13:45 Asia/Dubai.
-     Next customer update due: 13:45 Asia/Dubai.
-     Customer update draft:
 Hello Daniel,
-We confirmed that all 40 invoices passed validation. Eight have recorded ASP acceptance references, while 32 do not have recorded acceptance confirmations. We identified a submission-handling issue during ASP rate limiting that left affected invoices in Submitted without automatic retry.
-Please do not resend the batch. We are arranging reconciliation of the 32 outstanding references and will retry only invoices confirmed as not received. This is to avoid duplicate submissions. We will update you by 13:45.
+
+I have taken ownership of the 40-invoice batch investigation. An HTTP 201 response confirms that the connector request was accepted, but it does not by itself confirm that every invoice was accepted by the ASP or delivered to the buyer.
+
+We are reconciling the invoice-level ASP acknowledgements. Please do not resend the batch until this check is complete, as that could create duplicate submissions.
+
+I will provide the next update by 13:45 Asia/Dubai.
+
 Regards,
 Support Team
-Workaround offered
+
+### Priority and justification
+
+- **Priority:** P2
+- **Why:** Thirty-two of forty invoices have no recorded ASP acknowledgement, and the buyer reports incomplete receipt. This is a significant partial processing failure with potential payment-run impact, but eight invoices were accepted and the evidence does not establish a complete platform outage.
+- **SLA deadlines:** First response within 1 hour (by 12:30); updates every 2–4 hours; resolution target 8 hours during applicable business hours.
+
+### Investigation log
+
+| Time (exercise clock) | What I checked / did | What I found |
+|---|---|---|
+| 11:45 | Reviewed connector response and customer report | Connector returned HTTP 201; portal displayed Submitted; buyer reported receiving only a few invoices. |
+| 12:00 | Queried the 40 invoice records | All 40 invoices had parsed and passed validation. |
+| 12:10 | Grouped invoice statuses and ASP references | Eight Accepted with ASP message IDs; 32 Submitted without ASP message IDs. |
+| 12:20 | Reviewed invoice event history | All 40 reached Submitted; only the first eight had subsequent Accepted events. |
+| 12:35 | Reviewed ASP mock logs | Repeated HTTP 429 rate-limit responses were recorded for the Sahara sender. |
+| 12:50 | Inspected submission implementation | HTTP 429 is not handled as a retryable response; affected invoices remain Submitted and are not selected by the worker's Validated/Failed retry filter. |
+| 13:00 | Inspected individual and bulk retry paths | Individual retry rejects Submitted invoices with HTTP 409; bulk retry selects only Validated and Failed invoices. |
+| 13:10 | Inspected ASP rate limiter | The configured policy permits a burst of 8 documents followed by 2 documents per second per sender. |
+| 13:20 | Saved database, ASP and code evidence | Evidence captured in the Sahara investigation and retry-handling files. |
+
+### Root cause
+
+- **What happened:** The batch contained 40 invoices. Eight received ASP acceptance acknowledgements; the remaining 32 remained Submitted without ASP message IDs or acceptance confirmations.
+- **Where:** API submission handling in `services/api/internal/submit/submit.go`; retry handling in `services/api/internal/httpapi/httpapi.go` and `services/api/internal/store/store.go`; ASP mock rate limiting in `services/asp-mock/main.go`.
+- **Why it happens:** The ASP returned HTTP 429 rate-limit responses during the batch. The submission code does not handle 429 as a retryable response or respect the Retry-After header. The invoice remains in Submitted, and the worker does not select Submitted invoices for retry because it processes Validated or Failed records.
+
+  The individual retry endpoint also permits only Validated or Failed invoices. A Submitted invoice therefore receives HTTP 409 when this endpoint is used. The bulk retry query likewise selects only Validated and Failed records.
+
+  The ASP mock uses a token-bucket limiter configured for a burst of 8 documents followed by 2 documents per second per sender. Excess requests receive HTTP 429 with a Retry-After header.
+
+  This explains why the batch can leave invoices in Submitted without recorded ASP acknowledgements and why the normal retry paths cannot recover them.
+- **Evidence:**
+  - [Sahara invoice acknowledgements](evidence/sahara-invoice-acknowledgements.txt)
+  - [Sahara retry investigation](evidence/sahara-retry-investigation.txt)
+  - [Sahara ASP investigation](evidence/sahara-asp-investigation.txt)
+  - [Sahara ASP logs](evidence/sahara-asp-logs.txt)
+  - [HTTP 429 submission code](evidence/api-submit-429-code.txt)
+  - [Individual retry HTTP 409 code](evidence/api-retry-409-code.txt)
+  - [Bulk retry status filter](evidence/api-bulk-retry-filter.txt)
+  - [Bulk retry endpoint](evidence/api-bulk-retry-endpoint.txt)
+  - [ASP rate-limiter configuration](evidence/asp-rate-limiter-config.txt)
+- **Confidence and open questions:** High confidence in the HTTP 429 handling and retry-recovery defect because the database state, ASP logs and source-code behaviour align. The 32 invoices still require reconciliation against ASP records to establish whether any were received despite the missing local acknowledgement. Buyer delivery must also be verified separately from ASP acceptance.
+
+### Customer resolution reply OR escalation note
+
+- **Which one and why:** L3 Engineering escalation. The submission handling defect is in product code and requires an engineering fix. Support retains ownership of customer communication.
+
+**Escalation: HTTP 429 leaves Sahara Medical invoices stuck in Submitted**
+
+- **Priority:** P2 — 32 of 40 invoices lack recorded ASP acknowledgements, affecting the customer's buyer payment process.
+- **Customer / seller:** Sahara Medical Supplies FZE; seller ID 5. Reported through Bluepeak ERP.
+- **Reported by / at:** Daniel Okafor; simulated inbox, Monday 16 November 2026, 11:30 Asia/Dubai.
+- **Affected:** Import ID `58a77bbd-4244-4f77-9266-c0974ee88b8c`; 40 invoices, SMS-1116-001-HC53 through SMS-1116-040-HC53.
+- **Symptoms (customer view):** Connector returned HTTP 201 and portal shows Submitted, but the buyer received only a few invoices and many ASP references are empty.
+- **Evidence:**
+  - Database: 8 Accepted with ASP message IDs; 32 Submitted with no ASP message IDs or ASP response.
+  - ASP logs: repeated HTTP 429 rate-limit responses for the Sahara sender during the batch.
+  - Code: `services/api/internal/submit/submit.go` sends the request once, handles 200 and 422 explicitly and does not handle 429 as a retryable response. It does not capture or respect Retry-After.
+  - Worker: retry selection includes Validated and Failed records, not Submitted records.
+  - Individual retry: Submitted records are rejected with HTTP 409.
+  - Bulk retry: the query selects only Validated and Failed records.
+  - ASP limiter: burst of 8, then 2 documents per second per sender.
+- **Steps to reproduce:**
+  1. Submit a batch large enough to trigger the ASP mock rate limiter.
+  2. Observe HTTP 429 responses.
+  3. Inspect invoice records after submission.
+  4. Observe that affected records remain Submitted without ASP references and are not selected by the retry worker.
+  5. Attempt the individual retry path for a Submitted invoice and observe HTTP 409.
+- **What I have already tried / ruled out:**
+  - Confirmed all 40 invoices parsed and passed validation.
+  - Confirmed eight ASP acceptances.
+  - Confirmed 32 invoices lack recorded ASP acknowledgements.
+  - Confirmed the connector's HTTP 201 does not prove individual ASP acceptance.
+  - Confirmed the standard retry paths do not recover Submitted records.
+- **Suspected cause (with confidence):** High confidence — HTTP 429 is not handled as a retryable submission result; Submitted records are excluded from the worker's retry selection and normal retry endpoints.
+- **Workaround in place:** Do not resend the entire batch. Reconcile the 32 outstanding invoice references with ASP records before retrying only those confirmed as not received. Recovery of Submitted records requires an engineering-approved, audited and idempotent path. Do not manually change database statuses.
+- **Timeline:**
+  - 11:30 — customer report received.
+  - 12:10 — database confirmed 8 accepted and 32 without acknowledgement.
+  - 12:35 — ASP 429 responses identified.
+  - 12:50 — submission and retry code reviewed.
+  - 13:10 — rate limiter and recovery constraints verified.
+- **Ask:** Engineering to implement HTTP 429 handling, respect Retry-After, add bounded exponential backoff and idempotency protection, and provide a safe recovery procedure for the 32 affected invoices. Because the normal worker selects Validated/Failed records rather than Submitted records, confirm the supported recovery/status-repair path; do not manually change statuses or retry until ASP receipt has been reconciled. Please provide an initial assessment by 13:45 Asia/Dubai.
+- **Next customer update due:** 13:45 Asia/Dubai.
+
+**Customer update draft:**
+
+Hello Daniel,
+
+We confirmed that all 40 invoices passed validation. Eight have recorded ASP acceptance references, while 32 do not have recorded acceptance confirmations. We identified a submission-handling issue during ASP rate limiting that left affected invoices in Submitted without automatic retry.
+
+Please do not resend the batch. We are arranging reconciliation of the 32 outstanding references and will retry only invoices confirmed as not received. This is to avoid duplicate submissions. We will update you by 13:45.
+
+Regards,
+Support Team
+
+### Workaround offered
+
 - Keep the eight Accepted invoices untouched.
 - Reconcile the remaining 32 invoice references against ASP records.
-- Retry only invoices confirmed as not received.
+- Retry only invoices confirmed as not received through an approved recovery path.
+- Respect the ASP burst and rate policy during recovery.
 - Verify ASP acceptance and buyer delivery separately.
-- Do not resend the entire batch.
+- Do not resend the entire batch or manually change invoice statuses.
+
 ### Prevention ideas
+
 - Handle HTTP 429 as a retryable response.
 - Respect the ASP Retry-After header.
 - Implement bounded exponential backoff with jitter.
 - Add idempotency protection to prevent duplicate submissions.
-- Ensure invoices in an intermediate Submitted state can be safely recovered.
+- Ensure invoices in an intermediate Submitted state can be safely recovered through an audited, idempotent recovery path; do not rely on ad hoc database status changes.
 - Add monitoring for Submitted invoices without ASP message IDs.
 - Distinguish connector request acceptance, ASP acceptance and buyer delivery in the portal.
+
+---
+
 ## Incident 5 — Ghaf Tree Café date-format error
+
 ### Acknowledgement
+
 - Proposed send time (exercise clock): Monday, 16 November 2026, 12:30 Asia/Dubai
 - Reply (draft):
+
 Hello Hessa,
+
 Thank you for reporting the rejected invoices. I am checking the validation results for the issue dates and payment due dates to identify the exact formatting requirement.
+
 I will share the affected invoice references and the correction steps shortly.
+
 Regards,
 Support Team
+
 ### Priority and justification
-- Priority: P3
-- Why: Four invoices for one customer are rejected due to a date-format validation issue. The issue is limited to a single customer's invoice data, and the validation rule is working as documented.
-- SLA deadlines: First response within 4 hours (by 16:10); daily updates; resolution target 3 days during applicable business hours.
+
+- **Priority:** P3
+- **Why:** Four invoices for one customer are rejected due to a date-format validation issue. The issue is limited to a single customer's invoice data, and the validation rule is working as documented.
+- **SLA deadlines:** First response within 4 hours (by 16:10); daily updates; resolution target 3 days during applicable business hours.
+
 ### Investigation log
+
 | Time (exercise clock) | What I checked / did | What I found |
-
+|---|---|---|
 | 12:30 | Reviewed customer report and validation error | The reported date value was 13/11/2026; the expected format was YYYY-MM-DD. |
-
 | 12:40 | Identified the correct seller record | Seller was Ghaf Tree Café LLC, seller ID 6. |
-
 | 12:50 | Queried four November invoice records | All four were Rejected with validation rule AE-BR-04. |
-
 | 13:00 | Reviewed issue and due dates | Both fields used DD/MM/YYYY rather than YYYY-MM-DD. |
-
 | 13:10 | Checked the other invoice fields | The reported validation failure concerned date format; no amount-related cause was established. |
+| 13:20 | Reviewed the template field guide | Confirmed the documented Excel conversion steps for actual Excel date cells and text dates. |
+| 13:30 | Saved the investigation and field-guide evidence | Invoice references, validation messages and date-format guidance captured in evidence files. |
 
-| 13:20 | Saved the investigation output | Invoice references and validation messages captured in the evidence file. |
 ### Root cause
-- What happened: All four invoices were rejected because issue dates and payment due dates were supplied in DD/MM/YYYY format rather than the required ISO YYYY-MM-DD format.
-- Where: Invoice data supplied to the validation stage. The exact upstream source of the formatting is not established.
-- Why it happens: The supplied dates do not match the documented validation format. The evidence does not establish whether the ERP export, import mapping or date-conversion process introduced the format.
-- Evidence:
+
+- **What happened:** All four invoices were rejected because issue dates and payment due dates were supplied in DD/MM/YYYY format rather than the required ISO YYYY-MM-DD format.
+- **Where:** Invoice data supplied to the validation stage. The exact upstream source of the formatting is not established.
+- **Why it happens:** The supplied dates do not match the documented validation format. The evidence does not establish whether the ERP export, import mapping or date-conversion process introduced the format.
+- **Evidence:**
   - [Ghaf invoice investigation](evidence/ghaf-invoice-investigation.txt)
-  - Invoice references: GTC-118-HC53, GTC-119-HC53, GTC-120-HC53, GTC-121-HC53.
+  - [Ghaf date-format field guide](evidence/ghaf-date-format-guide.txt)
+  - Invoice references: GTC-118-HC53, GTC-119-HC53, GTC-120-HC53 and GTC-121-HC53.
   - Validation rule: AE-BR-04.
-- Confidence and open questions: High confidence in the date-format validation failure. The upstream source of the formatting needs confirmation.
+- **Confidence and open questions:** High confidence in the date-format validation failure. The upstream source of the formatting needs confirmation.
+
 ### Customer resolution reply OR escalation note
-- Which one and why: Customer resolution reply. The validation rule is working as documented; the customer needs to correct the date format before resubmitting.
+
+- **Which one and why:** Customer resolution reply. The validation rule is working as documented; the customer needs to correct the exported date values before resubmitting.
+
+**Customer reply draft:**
+
 Hello Hessa,
+
 We investigated the four invoices in your batch and confirmed that all four were rejected due to a date-format validation error (AE-BR-04).
-The invoice issue dates and payment due dates were provided in DD/MM/YYYY format, whereas the portal requires YYYY-MM-DD.
-Please update the date format in your ERP or invoice export configuration and regenerate the affected invoices. Before resubmission, verify that both issue and due dates follow the required format.
-Please check the status of the existing rejected records before resubmitting the corrected invoices.
+
+The invoice issue dates and payment due dates were provided in DD/MM/YYYY format, whereas the portal requires YYYY-MM-DD. The calendar dates themselves are not the problem; the format of the values supplied to the portal is.
+
+Please update both date fields in the exported invoice data as follows:
+
+| Invoice | Issue date | Payment due date |
+|---|---|---|
+| GTC-118-HC53 | 2026-11-13 | 2026-12-13 |
+| GTC-119-HC53 | 2026-11-13 | 2026-12-13 |
+| GTC-120-HC53 | 2026-11-14 | 2026-12-14 |
+| GTC-121-HC53 | 2026-11-15 | 2026-12-15 |
+
+If you use Excel:
+
+1. If the cells contain real Excel dates, select the date column, open Format Cells, choose Custom, and enter `yyyy-mm-dd`.
+2. If the dates were entered as text, use a helper column with this formula for DD/MM/YYYY text in cell A2:
+
+   `=TEXT(DATE(RIGHT(A2,4),MID(A2,4,2),LEFT(A2,2)),"yyyy-mm-dd")`
+
+3. Fill the formula down for the affected rows.
+4. Copy the converted results and paste them as values.
+5. Check the actual exported CSV or invoice data to confirm the values are in `YYYY-MM-DD` format.
+
+Changing only the visible cell format will not necessarily convert text values. Please verify the exported values before regenerating the four invoices.
+
+Please check the status of the existing rejected records before resubmitting the corrected invoices. You do not need to change the invoice amounts or other customer details based on the findings of this investigation.
+
+We can guide you through the conversion if needed.
+
 Regards,
 Support Team
-Workaround offered
-Convert both issue dates and payment due dates to ISO YYYY-MM-DD format in the ERP export, regenerate the four affected invoices, and validate the corrected records before resubmission.
+
+### Workaround offered
+
+Convert both issue-date and payment-due-date values to ISO `YYYY-MM-DD` in the ERP/export. If using Excel, distinguish real date cells from text values, apply the appropriate conversion, and verify the underlying/exported values rather than only the visible cell format. Regenerate the four affected invoices and validate the exported records before resubmission.
+
 ### Prevention ideas
+
 - Normalize date values to ISO format before invoice validation.
 - Validate issue and due date formats early in the import process.
 - Provide a clear error message with an example of the expected format.
+- Provide an Excel template with date columns formatted and validated.
 - Add tests for common date formats and invalid or ambiguous date values.
+
+---
+
 ## Overall
-Prioritisation
-The initial priority order was:
-1. API restart alert — provisional P1 due to critical infrastructure alert and reported 502s.
+
+### Prioritisation
+
+The initial response-priority order (not the chronological order in which I began investigating) was:
+
+1. API restart alert — provisional P1 due to critical infrastructure alert and reported 502s, with an additional confirmed invoice submission/recovery defect.
 2. Sahara Medical — P2 due to 32 of 40 invoices lacking ASP acknowledgements and potential buyer payment impact.
 3. Al Noor Fuel — P2 due to three rejected invoices and auditor review.
 4. Oasis Builders — P2 due to uncertainty around upload status and duplicate-submission risk.
 5. Ghaf Tree Café — P3 due to a single-customer date-format validation issue.
-   I would reassess the API incident if investigation confirmed that invoices were still reaching the ASP and the impact was limited to intermittent degradation. The API restart root cause remains undetermined, so I would not claim that the issue was resolved.
-## What I would do differently
+
+Chronologically, I began with Oasis Builders at 09:15, then investigated the API restart alert at 09:55. The API incident was ranked first for response priority because of its critical alert and possible multi-customer impact; this is distinct from the order in which I opened the investigations.
+
+I would reassess the API incident if investigation confirmed that invoices were still reaching the ASP and the impact was limited to intermittent degradation. The API restart root cause remains undetermined, so I would not claim that the issue was resolved.
+
+### What I would do differently
+
 - Capture the exact customer import ID and invoice references before investigating.
 - Establish a clear baseline of service health and queue state before running load tests.
 - Correlate API logs, ASP responses, invoice events and database state using timestamps and identifiers.
 - Avoid interpreting HTTP 201 as proof of downstream ASP acceptance.
-- Confirm invoice delivery separately from ASP acceptance.
+- Confirm ASP acceptance separately from buyer delivery.
 - Preserve lifecycle events and logs before they expire.
+- Capture exact ASP response codes and retry eligibility for invoices left in intermediate states.
 - Use a consistent evidence naming convention and link every important finding to a saved artifact.
 - Keep customer updates factual and avoid promising a resolution before the affected records are reconciled.
-## What I learned / what I would need to learn
+
+### What I learned / what I would need to learn
+
 I gained practical experience investigating an invoice-processing workflow across a portal, API, PostgreSQL database, ASP mock and monitoring stack.
-I learned how important it is to distinguish import completion, invoice validation, submission, ASP acceptance and buyer delivery. I also investigated how HTTP 429 rate limiting can expose retry-handling defects and how a missing ASP acknowledgement can leave invoices in an ambiguous state.
-I would further study distributed-system retry patterns, idempotency, queue recovery, Prometheus and Grafana alert design, structured logging, container lifecycle diagnostics, and UAE e-invoicing validation rules.
+
+I learned how important it is to distinguish import completion, invoice validation, submission, ASP acceptance and buyer delivery. I also investigated how HTTP 429 rate limiting can expose retry-handling defects, how a missing ASP acknowledgement can leave invoices in an ambiguous state, and how retry-state restrictions can prevent normal recovery.
+
+The Al Noor investigation helped me understand how inconsistent monetary rounding can cause invoice validation failures even when source dispatch values are correct. The Ghaf investigation helped me distinguish actual Excel date cells from text values and understand why changing display formatting alone may not change exported data.
+
+I would further study distributed-system retry patterns, idempotency, queue recovery, Prometheus and Grafana alert design, structured logging, container lifecycle diagnostics, decimal arithmetic for financial systems, and UAE e-invoicing validation rules.
 
 ### Environment and monitoring screenshots
 
-* [Service health](evidence/service-health.png)
-* [Portal load-test results](evidence/portal-load-test.png)
-* [Grafana monitoring dashboard](evidence/grafana-monitoring.png)
-* [Baseline sample upload](evidence/baseline-sample-upload.png)
+- [Service health](evidence/service-health.png)
+- [Portal load-test results](evidence/portal-load-test.png)
+- [Grafana monitoring dashboard](evidence/grafana-monitoring.png)
+- [Baseline sample upload](evidence/baseline-sample-upload.png)
 
 ### AI usage disclosure
 
-I used ChatGPT as an assistance tool to structure the investigation, interpret logs and database results, reason about incident priorities, and draft customer responses and engineering escalation notes.
-I verified technical conclusions against the assignment environment, PostgreSQL query outputs, Docker inspection and event data, application logs, ASP mock logs, and source-code behaviour. I treated AI-generated explanations as hypotheses until supported by evidence. I did not use AI to fabricate system results or claim that customer communications had been sent.
+I used ChatGPT as an AI assistant to help structure my investigation approach, interpret technical findings, review incident explanations and improve the clarity of my written submission.
+
+I performed the hands-on work myself, including running the lab environment, querying PostgreSQL, inspecting Docker container state and logs, reviewing API and ASP source code, checking invoice statuses and ASP responses, capturing evidence, and preparing the GitHub repository. I treated AI-generated explanations as hypotheses until supported by database results, application logs, monitoring data or source-code behaviour.
+
+I did not use AI to fabricate system results or claim that customer communications or engineering escalations had been sent.
+
 All customer responses and escalation messages in this document are drafts for the simulated exercise and were not actually sent.

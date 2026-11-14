@@ -1,0 +1,51 @@
+   105	func (s *Submitter) submit(ctx context.Context, id string) {
+   106		inv, err := s.store.GetSubmission(ctx, id)
+   107		if err != nil {
+   108			s.log.Error("load invoice for submission", "invoice_id", id, "error", err)
+   109			return
+   110		}
+   111		if inv.Status != store.StatusValidated && inv.Status != store.StatusFailed {
+   112			return
+   113		}
+   114		if err := s.store.SetStatus(ctx, id, store.StatusSubmitted, "Sent to ASP"); err != nil {
+   115			s.log.Error("update status", "invoice_id", id, "error", err)
+   116			return
+   117		}
+   118	
+   119		start := time.Now()
+   120		resp, err := s.asp.Send(ctx, inv.SellerPeppolID, inv.Payload)
+   121		if err != nil {
+   122			s.log.Error("asp request failed", "invoice_id", id, "invoice_number", inv.InvoiceNumber, "error", err)
+   123			metrics.Submissions.WithLabelValues("failed").Inc()
+   124			_ = s.store.SetStatus(ctx, id, store.StatusFailed, "Could not reach ASP: "+err.Error())
+   125			return
+   126		}
+   127		s.log.Info("asp response", "invoice_id", id, "invoice_number", inv.InvoiceNumber,
+   128			"status_code", resp.StatusCode, "duration_ms", time.Since(start).Milliseconds())
+   129	
+   130		var reply aspReply
+   131		_ = json.Unmarshal(resp.Body, &reply)
+   132	
+   133		switch resp.StatusCode {
+   134		case http.StatusOK:
+   135			metrics.Submissions.WithLabelValues("accepted").Inc()
+   136			if err := s.store.MarkAccepted(ctx, id, reply.MessageID, resp.Body); err != nil {
+   137				s.log.Error("update status", "invoice_id", id, "error", err)
+   138			}
+   139		case http.StatusUnprocessableEntity:
+   140			metrics.Submissions.WithLabelValues("rejected").Inc()
+   141			detail := "Rejected by ASP"
+   142			if len(reply.Errors) > 0 {
+   143				detail = fmt.Sprintf("Rejected by ASP: %s %s", reply.Errors[0].Rule, reply.Errors[0].Message)
+   144			}
+   145			errs := make([]map[string]any, 0, len(reply.Errors))
+   146			for _, e := range reply.Errors {
+   147				errs = append(errs, map[string]any{"rule": e.Rule, "field": "", "message": e.Message, "row": 0})
+   148			}
+   149			if err := s.store.MarkRejected(ctx, id, "asp", errs, resp.Body, detail); err != nil {
+   150				s.log.Error("update status", "invoice_id", id, "error", err)
+   151			}
+   152		case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+   153			metrics.Submissions.WithLabelValues("failed").Inc()
+   154			_ = s.store.SetStatus(ctx, id, store.StatusFailed, fmt.Sprintf("ASP returned HTTP %d", resp.StatusCode))
+   155		}
