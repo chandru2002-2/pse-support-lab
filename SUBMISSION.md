@@ -22,8 +22,6 @@
 ### Investigation log
 | Time (exercise clock) | What I checked / did | What I found |
 
-|---|---|---|
-
 | 09:15 | Reviewed customer report and uploaded symptoms | Customer reported Processing state and duplicate invoice number warnings. |
 
 | 09:30 | Queried November import record | Import 59df6691-bc4b-4134-a121-c3b00ab03962 was Completed, with 8 invoices. |
@@ -80,8 +78,6 @@ Do not retry the upload until the actual import ID, invoice numbers and ASP mess
 - SLA deadlines: First response within 15–30 minutes of receipt (09:57–10:12, based on 09:42 receipt); updates every 30–60 minutes; resolution target 4 hours.
 ### Investigation log
 | Time (exercise clock) | What I checked / did | What I found |
-
-|---|---|---|
 
 | 09:55 | Reviewed critical restart alert and Priya's report | Alert reported 3 restarts in 15 minutes; customer-facing symptoms included intermittent 502s and invoices stuck in Validated. |
 
@@ -159,8 +155,6 @@ Monitor API health and identify affected invoices that remain in Validated. Reco
 ### Investigation log
 | Time (exercise clock) | What I checked / did | What I found |
 
-|---|---|---|
-
 | 10:30 | Reviewed customer report and BR-CO-15 error | Rule requires IBT-112 to equal IBT-109 plus IBT-110. |
 
 | 10:40 | Queried the six November invoice records | Three invoices were Accepted and three were Rejected. |
@@ -212,8 +206,6 @@ Correct the arithmetic for the three rejected invoices, verify the totals to two
 - SLA deadlines: First response within 1 hour (by 12:30); updates every 2–4 hours; resolution target 8 hours during applicable business hours.
 ### Investigation log
 | Time (exercise clock) | What I checked / did | What I found |
-
-|---|---|---|
 
 | 11:45 | Reviewed connector response and customer report | Connector returned HTTP 201; portal displayed Submitted; buyer reported receiving only a few invoices. |
 
@@ -309,8 +301,6 @@ Support Team
 ### Investigation log
 | Time (exercise clock) | What I checked / did | What I found |
 
-|---|---|---|
-
 | 12:30 | Reviewed customer report and validation error | The reported date value was 13/11/2026; the expected format was YYYY-MM-DD. |
 
 | 12:40 | Identified the correct seller record | Seller was Ghaf Tree Café LLC, seller ID 6. |
@@ -376,3 +366,9 @@ I would further study distributed-system retry patterns, idempotency, queue reco
 * [Portal load-test results](evidence/portal-load-test.png)
 * [Grafana monitoring dashboard](evidence/grafana-monitoring.png)
 * [Baseline sample upload](evidence/baseline-sample-upload.png)
+
+### AI usage disclosure
+
+I used ChatGPT as an assistance tool to structure the investigation, interpret logs and database results, reason about incident priorities, and draft customer responses and engineering escalation notes.
+I verified technical conclusions against the assignment environment, PostgreSQL query outputs, Docker inspection and event data, application logs, ASP mock logs, and source-code behaviour. I treated AI-generated explanations as hypotheses until supported by evidence. I did not use AI to fabricate system results or claim that customer communications had been sent.
+All customer responses and escalation messages in this document are drafts for the simulated exercise and were not actually sent.
