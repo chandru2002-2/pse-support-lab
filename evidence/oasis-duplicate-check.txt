@@ -1,0 +1,4 @@
+ invoice_number | record_count 
+----------------+--------------
+(0 rows)
+
