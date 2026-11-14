@@ -1,0 +1,44 @@
+AL NOOR FUEL — BR-CO-15 ROUNDING REPRODUCTION
+Currency: AED
+VAT rate: 5%
+
+Method:
+Calculated gross = SUM(quantity * unitPrice * 1.05) across invoice lines.
+Reported expected gross = reported net total + reported VAT total.
+Final calculated gross is rounded to 2 decimal places.
+
+INVOICE ANF-2611-0042-HC53
+Line 1: 3125 * 2.917 * 1.05 = 9571.40625
+Line 2: 1837 * 2.585 * 1.05 = 4986.07725
+Line 3: 24 * 18.45 * 1.05 = 464.94000
+
+Net: 14307.08
+VAT: 715.35
+Expected gross (net + VAT): 15022.43
+Calculated gross: 15022.42
+Difference: 0.01
+
+INVOICE ANF-2611-0044-HC53
+Line 1: 2275 * 2.917 * 1.05 = 6967.98375
+Line 2: 1365 * 2.585 * 1.05 = 3704.95125
+Line 3: 415 * 1.275 * 1.05 = 555.58125
+Line 4: 12 * 46.75 * 1.05 = 589.05000
+
+Net: 11254.84
+VAT: 562.75
+Expected gross (net + VAT): 11817.59
+Calculated gross: 11817.57
+Difference: 0.02
+
+INVOICE ANF-2611-0046-HC53
+Line 1: 1512 * 2.917 * 1.05 = 4631.02920
+Line 2: 732 * 1.275 * 1.05 = 979.96500
+
+Net: 5343.80
+VAT: 267.20
+Expected gross (net + VAT): 5611.00
+Calculated gross: 5610.99
+Difference: 0.01
+
+CONCLUSION
+The independently calculated gross values reproduce the three BR-CO-15 rejection amounts. The discrepancy is consistent with the platform's independent gross calculation and rounding behaviour. No deployed correction is established by this evidence.

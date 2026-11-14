@@ -1,0 +1,28 @@
+Marina Bay Hospitality LLC — Invoice Status Breakdown
+Seller ID: 3
+Evidence captured: 14 November 2026
+
+SQL:
+SELECT
+    status,
+    COUNT(*) AS invoice_count,
+    COUNT(*) FILTER (
+        WHERE NULLIF(BTRIM(asp_message_id), '') IS NOT NULL
+    ) AS with_asp_message_id,
+    COUNT(*) FILTER (
+        WHERE NULLIF(BTRIM(asp_message_id), '') IS NULL
+    ) AS without_asp_message_id
+FROM invoices
+WHERE seller_id = 3
+GROUP BY status
+ORDER BY status;
+
+DATABASE OUTPUT:
+  status   | invoice_count | with_asp_message_id | without_asp_message_id 
+-----------+---------------+---------------------+------------------------
+ Accepted  |           144 |                 144 |                      0
+ Parsed    |            15 |                   0 |                     15
+ Submitted |           186 |                   0 |                    186
+ Validated |             9 |                   0 |                      9
+(4 rows)
+

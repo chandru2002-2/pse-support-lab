@@ -176,6 +176,8 @@ Product Support
   - [Bulk retry status filter](evidence/api-bulk-retry-filter.txt)
   - [Bulk retry endpoint](evidence/api-bulk-retry-endpoint.txt)
   - [ASP rate-limiter configuration](evidence/asp-rate-limiter-config.txt)
+  - [Marina Bay invoice status breakdown](evidence/marina-bay-invoice-status-breakdown.txt)
+  - [API startup sequences and timestamps](evidence/api-startup-sequences.txt)
 - **Confidence and open questions:** High confidence in the restart count, current inspection state, observed Marina Bay invoice breakdown, 27 rate-limit responses and source-code retry limitations. The restart root cause remains undetermined. Historical lifecycle logs, host-level events and telemetry around each restart timestamp are needed.
 
 ### Customer resolution reply OR escalation note
@@ -290,6 +292,7 @@ Support Team
   - [Al Noor invoice investigation](evidence/al-noor-invoice-investigation.txt)
   - [Rounding implementation](evidence/al-noor-rounding-code.txt)
   - [Rejected invoice payload calculations](evidence/al-noor-rounding-payloads.txt)
+  - [Independent rounding recalculation](evidence/al-noor-rounding-recalculation.txt)
   - Rejected invoice ANF-2611-0042-HC53: 14,307.08 + 715.35 = 15,022.43, but total is 15,022.42 (AED 0.01 difference).
   - Rejected invoice ANF-2611-0044-HC53: 11,254.84 + 562.75 = 11,817.59, but total is 11,817.57 (AED 0.02 difference).
   - Rejected invoice ANF-2611-0046-HC53: 5,343.80 + 267.20 = 5,611.00, but total is 5,610.99 (AED 0.01 difference).
