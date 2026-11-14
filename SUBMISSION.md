@@ -3,7 +3,7 @@
 - Name: Chandru M
 - Date submitted: 14 November 2026
 - Repository link: https://github.com/chandru2002-2/pse-support-lab
-- Total time spent: 6 hours 48 minutes (11:42 AM–6:30 PM IST).
+- Total time spent: 7 hours 18 minutes (11:42 AM–7 PM IST).
 
 Customer replies and acknowledgements below are drafts written against the simulated exercise clock (Monday 16 November 2026, Asia/Dubai). No customer or engineering messages were actually sent.
 
